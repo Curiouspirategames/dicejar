@@ -223,6 +223,8 @@ textarea.code-in:focus{border-color:var(--gold)}
 .spin{width:38px;height:38px;border:4px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp 0.8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .pull-note.warn-note{color:var(--gold)}
+.ji{width:1.15em;height:1.15em;vertical-align:-.2em;flex:none}
+.gif-tip{color:var(--muted);font-size:14px;text-align:center;margin:10px 0 0}
 .restore-link{display:block;margin:14px auto 0;background:none;border:0;color:var(--muted);font:700 15px 'Nunito',sans-serif;text-decoration:underline;cursor:pointer}
 </style>
 </head>
@@ -298,7 +300,7 @@ textarea.code-in:focus{border-color:var(--gold)}
             <span class="lbl">for</span>
             <select id="pullFor" aria-label="Assign pulled dice to"></select>
           </div>
-          <button class="btn primary big" id="btnPull">🫳 Pull from the jar</button>
+          <button class="btn primary big" id="btnPull"><svg class="ji" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="3.5" rx="1.2" fill="#c98a2b"/><path d="M5.5 7.5h13a1 1 0 0 1 1 1V19a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3V8.5a1 1 0 0 1 1-1z" fill="#cfe8ff" stroke="#3a2200" stroke-width="1.4"/><rect x="8" y="14" width="3.6" height="3.6" rx=".8" fill="#ff5a64"/><rect x="12.6" y="12.2" width="3.6" height="3.6" rx=".8" fill="#8a6bff" transform="rotate(14 14.4 14)"/><rect x="10" y="17.2" width="3.4" height="3.4" rx=".8" fill="#2fcf74"/><path d="M8 9.5v6" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity=".8"/></svg> Pull from the jar</button>
           <div class="pull-note" id="pullNote"></div>
         </div>
       </div>
@@ -308,7 +310,7 @@ textarea.code-in:focus{border-color:var(--gold)}
           <div class="tabs" role="tablist">
             <button class="tab" data-tab="log">📜 Log</button>
             <button class="tab" data-tab="stats">🏆 Stats</button>
-            <button class="tab" data-tab="jar">🫙 Jar</button>
+            <button class="tab" data-tab="jar"><svg class="ji" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="3.5" rx="1.2" fill="#c98a2b"/><path d="M5.5 7.5h13a1 1 0 0 1 1 1V19a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3V8.5a1 1 0 0 1 1-1z" fill="#cfe8ff" stroke="#8fb6dc" stroke-width="1.2"/><rect x="8" y="14" width="3.6" height="3.6" rx=".8" fill="#ff5a64"/><rect x="12.6" y="12.2" width="3.6" height="3.6" rx=".8" fill="#8a6bff" transform="rotate(14 14.4 14)"/><rect x="10" y="17.2" width="3.4" height="3.4" rx=".8" fill="#2fcf74"/><path d="M8 9.5v6" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity=".8"/></svg> Jar</button>
             <button class="tab" data-tab="done">✅ Done</button>
           </div>
           <div id="donePanel" hidden>
@@ -1305,14 +1307,31 @@ async function gifModal(p){
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
   let blob; try{ blob=makeGif(p); }catch(e){ if ($('#gStatus')) $('#gStatus').textContent='Sorry, the GIF could not be made on this device.'; return; }
   if (!$('#gBox')) return;
-  const url=URL.createObjectURL(blob), name=`dice-jar-pull-${p.n}.gif`, file=new File([blob], name, {type:'image/gif'});
-  $('#gBox').innerHTML=`<img src="${url}" alt="Animated roll for pull ${p.n}">`;
-  const canShare = navigator.canShare && navigator.canShare({files:[file]});
-  $('#gStatus').textContent = canShare ? 'Ready! Share it straight to Discord, or save it first.' : 'Ready! Download it, then drag or upload it into Discord.';
+  const name=`dice-jar-pull-${p.n}.gif`, file=new File([blob], name, {type:'image/gif'});
+  const dataUrl = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); });
+  if (!$('#gBox')) return;
+  // a data: URL keeps "Save image" / "Save to Photos" working on every browser
+  $('#gBox').innerHTML=`<img src="${dataUrl}" alt="Animated roll for pull ${p.n}" draggable="true">`;
+  const mobile = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  let canShare=false; try{ canShare = mobile && !!navigator.canShare && navigator.canShare({files:[file]}); }catch(e){}
+  const framed = (() => { try{ return window.self !== window.top; }catch(e){ return true; } })();
+  const status = m => { if ($('#gStatus')) $('#gStatus').textContent = m; };
+  status(canShare ? 'Ready! Tap Share and pick Discord, or "Save Image" to put it in your photos.'
+                  : 'Ready! Download it, then drag the file into Discord (or use the + button to upload).');
   $('#gAct').innerHTML = (canShare ? '<button class="btn primary" id="gShare">↗ Share GIF</button>' : '')
-    + `<button class="btn ${canShare?'':'primary'}" id="gDl">⬇ Download</button><button class="btn ghost" data-close>Close</button>`;
-  $('#gDl').onclick = () => download(blob, name);
-  if (canShare) $('#gShare').onclick = () => navigator.share({files:[file]}).catch(()=>{});
+    + `<button class="btn ${canShare?'':'primary'}" id="gDl">⬇ ${canShare?'Save file':'Download GIF'}</button><button class="btn ghost" data-close>Close</button>`;
+  $('#gBox').insertAdjacentHTML('afterend', `<p class="gif-tip">${mobile ? 'Or press and hold the GIF and choose Save.' : 'Or right-click the GIF and choose “Save image as…”.'}</p>`);
+  $('#gDl').onclick = () => {
+    if (framed){ // previews and embedded pages often block downloads, so open the GIF on its own instead
+      const w = window.open(); if (w){ w.document.write(`<title>${name}</title><body style="margin:0;background:#191430;display:grid;place-items:center;min-height:100vh"><img src="${dataUrl}" style="max-width:100%"><p style="color:#c8bfea;font:16px sans-serif;text-align:center">Right-click or press and hold the GIF to save it.</p></body>`); w.document.close(); return; }
+    }
+    download(blob, name);
+    status(mobile ? 'Saved. On iPhone it goes to the Files app (Downloads). Share → Save Image puts it in Photos.' : `Saved to your Downloads folder as ${name}. Drag it into Discord.`);
+  };
+  if (canShare) $('#gShare').onclick = async () => {
+    try{ await navigator.share({files:[file]}); }
+    catch(e){ if (e && e.name==='AbortError') return; status('Sharing was blocked here, so the GIF is downloading instead.'); download(blob, name); }
+  };
 }
 
 /* ---- players modal ---- */
